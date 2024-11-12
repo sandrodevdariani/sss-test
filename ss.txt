@@ -1,0 +1,39 @@
+What is Docker Image?
+A Docker image is a compact, portable package containing everything needed to run an application: code, runtime, libraries, and configurations. It serves as a template for creating containers, ensuring consistent behavior across environments.
+
+
+What is Docker Image Layers?
+Docker image layers are the building blocks of a Docker image, with each layer representing an instruction in the image's Dockerfile. Layers are stacked to create a final image, and only new or changed layers are added when images are updated. This makes Docker images efficient by reusing unchanged layers across containers, optimizing storage and build speed.
+
+
+What are namespaces in Kubernetes?
+In Kubernetes, namespaces partition a cluster into virtual subclusters, isolating resources and enabling multi-tenancy. They help manage environments like dev, test, and prod within the same cluster and enforce resource limits per namespace.
+
+
+What is a node in Kubernetes?
+In Kubernetes, a node is a physical or virtual machine that runs the containerized applications. It contains the necessary services for running pods, including the kubelet (manages containers) and kube-proxy (handles networking).
+
+What process runs on Kubernetes Master Node?
+In Kubernetes, the Master Node runs key processes like API server, etcd (for cluster data), Controller Manager, and Scheduler. These ensure orchestration, management, and state maintenance of the cluster.
+
+What is a pod in Kubernetes?
+A pod in Kubernetes is the smallest deployable unit, encapsulating one or more containers. It shares storage, network resources, and specifications for running applications, making it easier to manage and scale services in the cluster.
+
+What is the job of the kube-scheduler?
+The kube-scheduler in Kubernetes is responsible for assigning newly created pods to available nodes in the cluster. It selects nodes based on resource availability, constraints, and policies, ensuring optimal placement for workloads.
+
+What is the Kubernetes controller manager?
+The Kubernetes controller manager is responsible for managing controllers that regulate the state of the cluster. It monitors the cluster and ensures the desired state (like replicas or node availability) is maintained by continuously comparing the current state with the desired state.
+
+
+What is etcd? 
+etcd is a distributed key-value store used in Kubernetes to store all cluster data, such as configuration data, state, and metadata. It ensures consistency and reliability, maintaining a central source of truth for the cluster.
+
+What is Kubelet?
+The Kubelet is an agent that runs on each node in a Kubernetes cluster. It ensures that containers are running in a pod as expected, managing pod lifecycle, and maintaining the desired state by interacting with the Kubernetes API server.
+
+What is Kubectl?
+Kubectl is a command-line tool used to interact with Kubernetes clusters. It allows users to deploy applications, manage resources, view logs, and perform various tasks on clusters. It communicates with the Kubernetes API server to execute commands and retrieve cluster information.
+
+What is the role of Kube-apiserver?
+The Kube-apiserver is the central component of the Kubernetes control plane. It exposes the Kubernetes API, allowing communication between different components of the cluster. It validates and processes REST requests, ensuring the cluster’s state is consistent.
