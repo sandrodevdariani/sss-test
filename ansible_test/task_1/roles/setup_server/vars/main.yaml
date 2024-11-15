@@ -1,0 +1,14 @@
+---
+required_packages:
+  - nginx
+  - php
+  - mlocate
+  - vim
+
+user_name: upload
+user_password: devops
+user_shell: /bin/bash
+
+index_file_path: /usr/share/testpage/index.html
+
+nginx_service_name: nginx

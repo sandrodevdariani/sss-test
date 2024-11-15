@@ -1,0 +1,6 @@
+- name: Configure server with required packages and settings
+  hosts: all
+  become: yes
+  gather_facts: yes
+  roles:
+    - setup_server

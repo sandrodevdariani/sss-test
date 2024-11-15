@@ -1,0 +1,41 @@
+---
+- name: Install necessary packages
+  apt:
+    name: "{{ required_packages }}"
+    state: present
+  become: yes
+
+- name: Create user with username and password
+  user:
+    name: "{{ user_name }}"
+    password: "{{ user_password}}"
+    state: present
+  become: yes
+
+- name: Gather IP
+  local_action:
+        module: lineinfile
+        path: "{{ index_file_path }}"
+        create: yes
+        line: "IP Address of this server is {{ ansible_default_ipv4.address }}"
+  delegate_to: localhost 
+  become: yes
+
+- name: Write IP address to index.html on remote machine
+  lineinfile:
+    path: "{{ index_file_path }}"
+    create: yes
+    line: "IP Address of this server is {{ ansible_default_ipv4.address }}"
+  become: yes
+
+- name: Enable nginx service
+  service:
+    name: "{{ nginx_service_name }}"
+    enabled: true
+  become: yes
+
+- name: Ensure nginx service is started
+  service:
+    name: "{{ nginx_service_name }}"
+    state: started
+  become: yes

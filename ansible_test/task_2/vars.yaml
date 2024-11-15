@@ -1,0 +1,11 @@
+nginx_packages:
+  - nginx
+  - nodejs
+  - git
+
+# Replace with your instance's public IP or DNS
+nginx_server_name: "YOUR_INSTANCE_PUBLIC_IP_OR_DNS"
+repo_url: "https://github.com/fropa/nodejs-hello"
+repo_dest: "/opt/nodejs-hello"
+node_app_path: "/opt/nodejs-hello"
+nginx_config_path: "/etc/nginx/sites-available/nodejs-hello"

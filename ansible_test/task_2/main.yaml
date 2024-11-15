@@ -1,0 +1,66 @@
+- name: Set up Node.js App with Nginx Reverse Proxy
+  hosts: all
+  become: yes
+  vars_files:
+    - vars.yml
+  tasks:
+    # n1: Install nginx, nodejs, git
+    - name: Update apt package index
+      apt:
+        update_cache: yes
+
+    - name: Install nginx, nodejs, git
+      apt:
+        name: "{{ nginx_packages }}"
+        state: present
+
+    # n2: Clone the Git repository
+    - name: Clone the Git repository
+      git:
+        repo: "{{ repo_url }}"
+        dest: "{{ repo_dest }}"
+        update: yes
+
+    # n3: Run the Node.js Hello application
+    - name: Install Node.js dependencies
+      command: npm install
+      args:
+        chdir: "{{ node_app_path }}"
+
+    - name: Start the Node.js application
+      command: node app.js
+      args:
+        chdir: "{{ node_app_path }}"
+      async: 10
+      poll: 0
+
+    # n4: Set up Nginx Reverse Proxy for Node.js Application
+    - name: Create Nginx reverse proxy configuration file
+      copy:
+        dest: "{{ nginx_config_path }}"
+        content: |
+          server {
+              listen 80;
+              server_name {{ ansible_default_ipv4.address }};  # or replace with public IP manually
+
+              location / {
+                  proxy_pass http://localhost:3000;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+              }
+          }
+
+    - name: Enable the site by creating a symbolic link
+      file:
+        src: "{{ nginx_config_path }}"
+        dest: "/etc/nginx/sites-enabled/nodejs-hello"
+        state: link
+
+    - name: Restart Nginx to apply changes
+      service:
+        name: nginx
+        state: restarted
+
+
