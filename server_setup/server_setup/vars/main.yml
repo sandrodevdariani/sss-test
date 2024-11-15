@@ -1,4 +1,4 @@
 ---
 # vars/main.yml
 username: upload
-password_hash: "$6$DjrijJUANikPUUx3$Ebsdp9WlfX0vo2qrKvc5XrH6N4i6/iQMjGesbymYYYXJZFu7q0Br49GebNFofxAkbP3Yl02xHZepwIFCMDl9n1"
+password_hash: devops
