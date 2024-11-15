@@ -1,0 +1,48 @@
+---
+# tasks/main.yml
+
+- name: Install required packages
+  become: yes
+  apt:
+    name:
+      - nginx
+      - nodejs
+      - git
+    state: present
+
+- name: Clone the Git repository
+  become: yes
+  git:
+    repo: "{{ nodejs_app_git_repo }}"
+    dest: "{{ nodejs_app_dest }}"
+
+- name: Set up Node.js app as a service
+  become: yes
+  copy:
+    dest: /etc/systemd/system/node-app.service
+    content: |
+      [Unit]
+      Description=Node.js App
+
+      [Service]
+      ExecStart=/usr/bin/node {{ nodejs_app_dest }}/app.js
+      Restart=always
+      User=nobody
+      Environment=PORT={{ nodejs_app_port }}
+
+      [Install]
+      WantedBy=multi-user.target
+
+- name: Enable and start Node.js app service
+  become: yes
+  systemd:
+    name: node-app
+    enabled: yes
+    state: started
+
+- name: Configure Nginx reverse proxy
+  become: yes
+  template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/sites-available/default
+  notify: restart nginx

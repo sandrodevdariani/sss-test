@@ -1,0 +1,46 @@
+---
+- name: Install necessary packages
+  apt:
+    name:
+      - nginx
+      - php
+      - mlocate
+      - vim
+    state: present
+  become: yes
+
+- name: Create user with specified username and password
+  user:
+    name: "{{ username }}"
+    password: "{{ password_hash }}"
+    state: present
+  become: yes
+
+- name: Gather IP
+  local_action:
+        module: lineinfile
+        path: /usr/share/testpage/index.html
+        create: yes
+        line: "IP Address of this server is {{ ansible_default_ipv4.address }}"
+  delegate_to: localhost  # Execute this task on the control node
+  become: yes
+
+- name: Gather IP and write to file on remote machine
+  lineinfile:
+    path: /usr/share/testpage/index.html
+    create: yes
+    line: "IP Address of this server is {{ ansible_default_ipv4.address }}"
+  become: yes
+
+- name: Enable nginx service
+  service:
+    name: nginx
+    enabled: true
+  become: yes
+
+- name: Ensure nginx service is started
+  ansible.builtin.service:
+    name: nginx
+    state: started
+    enabled: yes
+

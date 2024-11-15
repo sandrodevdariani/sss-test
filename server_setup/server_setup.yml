@@ -1,0 +1,4 @@
+# playbook.yml
+- hosts: all
+  roles:
+    - server_setup

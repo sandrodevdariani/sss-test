@@ -1,0 +1,9 @@
+---
+
+nodejs_app_git_repo: "https://github.com/fropa/nodejs-hello.git"
+
+nodejs_app_dest: "/var/www/nodejs-app"
+
+nodejs_app_port: 3000
+
+nginx_server_name: "example.com"
