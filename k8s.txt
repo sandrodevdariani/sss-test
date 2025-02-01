@@ -1,0 +1,499 @@
+1. Create 4 Ubuntu 22.04 Instances
+Provision 4 Ubuntu instances with 2 CPU, 8GB RAM, 20GB Disk
+Roles:
+
+1 Master
+2 Workers
+1 Management
+2. Generate SSH Key on Management & Copy to Master & Workers
+bash
+Copy
+Edit
+ssh-keygen -t rsa
+cat ~/.ssh/id_rsa.pub
+Manually add the key to Master & Worker nodes:
+
+bash
+Copy
+Edit
+vi /home/ubuntu/.ssh/authorized_keys
+3. Install Docker on All Nodes (Management, Master, Workers)
+bash
+Copy
+Edit
+wget https://releases.rancher.com/install-docker/20.10.sh
+sh 20.10.sh
+sudo apt install docker.io -y
+sudo systemctl start docker
+sudo systemctl status docker
+sudo systemctl enable docker
+4. Add User to Docker Group
+bash
+Copy
+Edit
+sudo addgroup wheel
+sudo usermod -aG wheel ubuntu
+sudo usermod -aG docker ubuntu
+sudo chmod 777 /var/run/docker.sock
+5. Install Kubectl on Management
+bash
+Copy
+Edit
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+curl -LO "https://dl.k8s.io/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl.sha256"
+echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+kubectl version --client
+6. Install Helm on Management
+bash
+Copy
+Edit
+curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+chmod 700 get_helm.sh
+./get_helm.sh
+7. Install & Configure RKE on Management
+bash
+Copy
+Edit
+curl -s https://api.github.com/repos/rancher/rke/releases/latest | grep download_url | grep amd64 | cut -d '"' -f 4 | wget -qi -
+chmod +x rke_linux-amd64
+sudo mv rke_linux-amd64 /usr/local/bin/rke
+rke --version
+bash
+Copy
+Edit
+rke config --name cluster.yml
+Follow prompts to configure cluster with Master & Worker
+
+bash
+Copy
+Edit
+rke up
+8. Export KubeConfig on Management
+bash
+Copy
+Edit
+export KUBECONFIG=/home/ubuntu/kube_config_cluster.yml
+9. Generate Certs & Install Rancher API
+bash
+Copy
+Edit
+DOMAIN=rancher.btu.eu
+curl https://gist.githubusercontent.com/superseb/b2c1d6c9baa32609a49ee117a27bc700/raw/7cb196e974e13b213ac6ec3105971dd5e21e4c66/selfsignedcert.sh | bash -s -- $DOMAIN
+If permission denied error:
+
+bash
+Copy
+Edit
+sudo chmod 777 /var/run/docker.sock
+bash
+Copy
+Edit
+DOMAIN=rancher.btu.eu
+helm repo add rancher-latest https://releases.rancher.com/server-charts/latest
+kubectl create namespace cattle-system
+helm install rancher rancher-latest/rancher --namespace cattle-system --set hostname=rancher.btu.eu --set ingress.tls.source=secret --set privateCA=true --set bootstrapPassword=admin --set replicas=1
+kubectl -n cattle-system create secret tls tls-rancher-ingress --cert=certs/cert.pem --key=certs/key.pem
+sudo cp certs/ca.pem certs/cacerts.pem
+kubectl -n cattle-system create secret generic tls-ca --from-file=certs/cacerts.pem
+If Rancher pods fail to sync:
+
+bash
+Copy
+Edit
+kubectl edit catalogtemplates system-library-rancher-monitoring -n cattle-global-data
+Change:
+
+yaml
+Copy
+Edit
+spec.versions:
+  - kubeVersion: ">=1.21.0-0"
+Restart Docker on Worker:
+
+bash
+Copy
+Edit
+sudo systemctl restart docker
+10. Add Worker IP & Rancher to Local Hosts
+bash
+Copy
+Edit
+echo "worker_IP rancher.btu.eu" | sudo tee -a /etc/hosts
+11. Access Rancher UI
+Open rancher.btu.eu in the browser, reset password
+
+bash
+Copy
+Edit
+kubectl -n cattle-system exec $(kubectl -n cattle-system get pods -l app=rancher | grep '1/1' | head -1 | awk '{ print $1 }') -- reset-password
+12. Kubernetes Tasks
+Create a Namespace and Pods
+bash
+Copy
+Edit
+kubectl create namespace btu-quiz-YourUserName
+kubectl get namespaces
+kubectl run btu-pod --image=httpd:alpine -n btu-quiz-YourUserName
+kubectl run btu-pod2 --image=nginx:alpine -n btu-quiz-YourUserName
+kubectl get pods -n btu-quiz-YourUserName
+Create a PersistentVolume & PersistentVolumeClaim
+bash
+Copy
+Edit
+kubectl apply -f - <<EOF
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: earth-project-earthflower-pv
+spec:
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /Volumes/Data
+EOF
+
+kubectl apply -f - <<EOF
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: earth-project-earthflower-pvc
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+EOF
+
+kubectl get pv,pvc
+Create Deployment for Neptune Team
+bash
+Copy
+Edit
+kubectl create namespace neptune
+kubectl apply -f - <<EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: neptune-10ab
+  namespace: neptune
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: neptune-pod-10ab
+  template:
+    metadata:
+      labels:
+        app: neptune-pod-10ab
+    spec:
+      serviceAccountName: neptune-sa-v2
+      containers:
+      - name: neptune-pod-10ab
+        image: httpd:2.4-alpine
+        resources:
+          requests:
+            memory: "20Mi"
+          limits:
+            memory: "50Mi"
+EOF
+
+kubectl get pods -n neptune
+kubectl get sa -n neptune
+Expose a Deployment
+bash
+Copy
+Edit
+kubectl create deployment expose --image=lfccncf/nginx:1.13.7 --replicas=6
+kubectl set env deployment/expose NGINX_PORT=8001
+kubectl expose deployment expose --port=8001 --target-port=8001
+kubectl get deployment
+kubectl get deployment expose -o yaml
+Create DaemonSet
+bash
+Copy
+Edit
+kubectl create namespace configurator
+kubectl apply -f - <<EOF
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: configurator
+  namespace: configurator
+spec:
+  selector:
+    matchLabels:
+      name: configurator
+  template:
+    metadata:
+      labels:
+        name: configurator
+    spec:
+      containers:
+      - name: configurator
+        image: bash
+        command: ["/bin/bash", "-c"]
+        args: ["echo aba997ac-1c89-4d64 > /configurator/config; sleep 1d"]
+        volumeMounts:
+        - mountPath: /configurator
+          name: configurator-volume
+      volumes:
+      - name: configurator-volume
+        hostPath:
+          path: /configurator
+EOF
+
+kubectl get daemonset -n configurator -oyaml
+This covers all the setup and configurations required for your cluster. 🚀 Let me know if you need any modifications!
+
+
+
+
+
+
+You said:
+each step mention on where this commands should be run: 4. Add User to Docker Group like where this should be run?
+ChatGPT said:
+ChatGPT
+Here's the step-by-step guide with each command clearly mentioning where it should be run:
+
+1. Create 4 Ubuntu 22.04 Instances
+Run this on your cloud provider's console or provisioning tool (AWS, GCP, Azure, etc.)
+
+1 Management
+1 Master
+2 Workers
+Each instance should have 2 CPU, 8GB RAM, 20GB Disk
+2. Generate SSH Key on Management & Copy to Master & Workers
+Run on Management
+bash
+Copy
+Edit
+ssh-keygen -t rsa
+cat ~/.ssh/id_rsa.pub
+Manually Copy to Each Master & Worker Node
+On each Master & Worker node, add the key:
+
+bash
+Copy
+Edit
+vi /home/ubuntu/.ssh/authorized_keys
+3. Install Docker
+Run on Management, Master & Worker Nodes
+bash
+Copy
+Edit
+wget https://releases.rancher.com/install-docker/20.10.sh
+sh 20.10.sh
+sudo apt install docker.io -y
+sudo systemctl start docker
+sudo systemctl status docker
+sudo systemctl enable docker
+4. Add User to Docker Group
+Run on Management, Master & Worker Nodes
+bash
+Copy
+Edit
+sudo addgroup wheel
+sudo usermod -aG wheel ubuntu
+sudo usermod -aG docker ubuntu
+sudo chmod 777 /var/run/docker.sock
+5. Install Kubectl
+Run on Management Only
+bash
+Copy
+Edit
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+curl -LO "https://dl.k8s.io/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl.sha256"
+echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+kubectl version --client
+6. Install Helm
+Run on Management Only
+bash
+Copy
+Edit
+curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+chmod 700 get_helm.sh
+./get_helm.sh
+7. Install & Configure RKE
+Run on Management Only
+bash
+Copy
+Edit
+curl -s https://api.github.com/repos/rancher/rke/releases/latest | grep download_url | grep amd64 | cut -d '"' -f 4 | wget -qi -
+chmod +x rke_linux-amd64
+sudo mv rke_linux-amd64 /usr/local/bin/rke
+rke --version
+bash
+Copy
+Edit
+rke config --name cluster.yml
+Follow the prompts to configure the cluster with Master & Worker
+
+bash
+Copy
+Edit
+rke up
+8. Export KubeConfig
+Run on Management Only
+bash
+Copy
+Edit
+export KUBECONFIG=/home/ubuntu/kube_config_cluster.yml
+9. Generate Certs & Install Rancher API
+Run on Management Only
+bash
+Copy
+Edit
+DOMAIN=rancher.btu.eu
+curl https://gist.githubusercontent.com/superseb/b2c1d6c9baa32609a49ee117a27bc700/raw/7cb196e974e13b213ac6ec3105971dd5e21e4c66/selfsignedcert.sh | bash -s -- $DOMAIN
+If permission denied error:
+
+bash
+Copy
+Edit
+sudo chmod 777 /var/run/docker.sock
+bash
+Copy
+Edit
+DOMAIN=rancher.btu.eu
+helm repo add rancher-latest https://releases.rancher.com/server-charts/latest
+kubectl create namespace cattle-system
+helm install rancher rancher-latest/rancher --namespace cattle-system --set hostname=rancher.btu.eu --set ingress.tls.source=secret --set privateCA=true --set bootstrapPassword=admin --set replicas=1
+kubectl -n cattle-system create secret tls tls-rancher-ingress --cert=certs/cert.pem --key=certs/key.pem
+sudo cp certs/ca.pem certs/cacerts.pem
+kubectl -n cattle-system create secret generic tls-ca --from-file=certs/cacerts.pem
+10. Add Worker IP & Rancher to Local Hosts
+Run on Management Only
+bash
+Copy
+Edit
+echo "worker_IP rancher.btu.eu" | sudo tee -a /etc/hosts
+11. Access Rancher UI
+Run on Management Only
+bash
+Copy
+Edit
+kubectl -n cattle-system exec $(kubectl -n cattle-system get pods -l app=rancher | grep '1/1' | head -1 | awk '{ print $1 }') -- reset-password
+Then, open rancher.btu.eu in the browser.
+
+12. Kubernetes Setup
+Run on Management
+Create a Namespace and Pods
+bash
+Copy
+Edit
+kubectl create namespace btu-quiz-YourUserName
+kubectl run btu-pod --image=httpd:alpine -n btu-quiz-YourUserName
+kubectl run btu-pod2 --image=nginx:alpine -n btu-quiz-YourUserName
+kubectl get pods -n btu-quiz-YourUserName
+Create PersistentVolume & PersistentVolumeClaim
+bash
+Copy
+Edit
+kubectl apply -f - <<EOF
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: earth-project-earthflower-pv
+spec:
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /Volumes/Data
+EOF
+
+kubectl apply -f - <<EOF
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: earth-project-earthflower-pvc
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+EOF
+
+kubectl get pv,pvc
+Deploy Neptune Team Pods
+bash
+Copy
+Edit
+kubectl create namespace neptune
+kubectl apply -f - <<EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: neptune-10ab
+  namespace: neptune
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: neptune-pod-10ab
+  template:
+    metadata:
+      labels:
+        app: neptune-pod-10ab
+    spec:
+      serviceAccountName: neptune-sa-v2
+      containers:
+      - name: neptune-pod-10ab
+        image: httpd:2.4-alpine
+        resources:
+          requests:
+            memory: "20Mi"
+          limits:
+            memory: "50Mi"
+EOF
+Expose Deployment
+bash
+Copy
+Edit
+kubectl create deployment expose --image=lfccncf/nginx:1.13.7 --replicas=6
+kubectl set env deployment/expose NGINX_PORT=8001
+kubectl expose deployment expose --port=8001 --target-port=8001
+kubectl get deployment expose -o yaml
+Create DaemonSet
+bash
+Copy
+Edit
+kubectl create namespace configurator
+kubectl apply -f - <<EOF
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: configurator
+  namespace: configurator
+spec:
+  selector:
+    matchLabels:
+      name: configurator
+  template:
+    metadata:
+      labels:
+        name: configurator
+    spec:
+      containers:
+      - name: configurator
+        image: bash
+        command: ["/bin/bash", "-c"]
+        args: ["echo aba997ac-1c89-4d64 > /configurator/config; sleep 1d"]
+        volumeMounts:
+        - mountPath: /configurator
+          name: configurator-volume
+      volumes:
+      - name: configurator-volume
+        hostPath:
+          path: /configurator
+EOF
